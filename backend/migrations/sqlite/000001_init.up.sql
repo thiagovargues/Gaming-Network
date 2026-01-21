@@ -1,17 +1,192 @@
+PRAGMA foreign_keys = ON;
+
 CREATE TABLE IF NOT EXISTS users (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	username TEXT NOT NULL UNIQUE,
+	email TEXT NOT NULL UNIQUE,
 	password_hash TEXT NOT NULL,
-	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+	first_name TEXT NOT NULL,
+	last_name TEXT NOT NULL,
+	dob TEXT NOT NULL,
+	avatar_path TEXT,
+	nickname TEXT,
+	about TEXT,
+	is_public INTEGER NOT NULL DEFAULT 1,
+	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
-	id TEXT PRIMARY KEY,
+	token TEXT PRIMARY KEY,
 	user_id INTEGER NOT NULL,
-	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	expires_at TIMESTAMP NOT NULL,
+	expires_at TEXT NOT NULL,
+	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS follow_requests (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	from_user_id INTEGER NOT NULL,
+	to_user_id INTEGER NOT NULL,
+	status TEXT NOT NULL,
+	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (from_user_id) REFERENCES users(id) ON DELETE CASCADE,
+	FOREIGN KEY (to_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS follows (
+	follower_id INTEGER NOT NULL,
+	followee_id INTEGER NOT NULL,
+	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (follower_id, followee_id),
+	FOREIGN KEY (follower_id) REFERENCES users(id) ON DELETE CASCADE,
+	FOREIGN KEY (followee_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS groups (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	creator_id INTEGER NOT NULL,
+	title TEXT NOT NULL,
+	description TEXT NOT NULL,
+	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS group_members (
+	group_id INTEGER NOT NULL,
+	user_id INTEGER NOT NULL,
+	role TEXT NOT NULL,
+	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (group_id, user_id),
+	FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+	FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS group_invites (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	group_id INTEGER NOT NULL,
+	from_user_id INTEGER NOT NULL,
+	to_user_id INTEGER NOT NULL,
+	status TEXT NOT NULL,
+	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+	FOREIGN KEY (from_user_id) REFERENCES users(id) ON DELETE CASCADE,
+	FOREIGN KEY (to_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS group_join_requests (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	group_id INTEGER NOT NULL,
+	user_id INTEGER NOT NULL,
+	status TEXT NOT NULL,
+	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+	FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS posts (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	user_id INTEGER NOT NULL,
+	group_id INTEGER,
+	text TEXT NOT NULL,
+	visibility TEXT NOT NULL,
+	media_path TEXT,
+	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+	FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS post_allowed (
+	user_id INTEGER NOT NULL,
+	post_id INTEGER NOT NULL,
+	PRIMARY KEY (user_id, post_id),
+	FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+	FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS comments (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	post_id INTEGER NOT NULL,
+	user_id INTEGER NOT NULL,
+	text TEXT NOT NULL,
+	media_path TEXT,
+	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+	FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS events (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	group_id INTEGER NOT NULL,
+	creator_id INTEGER NOT NULL,
+	title TEXT NOT NULL,
+	description TEXT NOT NULL,
+	datetime TEXT NOT NULL,
+	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+	FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS event_responses (
+	event_id INTEGER NOT NULL,
+	user_id INTEGER NOT NULL,
+	status TEXT NOT NULL,
+	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (event_id, user_id),
+	FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+	FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS dm_messages (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	from_user_id INTEGER NOT NULL,
+	to_user_id INTEGER NOT NULL,
+	text TEXT NOT NULL,
+	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (from_user_id) REFERENCES users(id) ON DELETE CASCADE,
+	FOREIGN KEY (to_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS group_messages (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	group_id INTEGER NOT NULL,
+	from_user_id INTEGER NOT NULL,
+	text TEXT NOT NULL,
+	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+	FOREIGN KEY (from_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	user_id INTEGER NOT NULL,
+	type TEXT NOT NULL,
+	payload_json TEXT NOT NULL,
+	is_read INTEGER NOT NULL DEFAULT 0,
+	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS media (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	owner_user_id INTEGER NOT NULL,
+	path TEXT NOT NULL,
+	mime TEXT NOT NULL,
+	created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_follow_requests_to ON follow_requests(to_user_id);
+CREATE INDEX IF NOT EXISTS idx_follows_followee ON follows(followee_id);
+CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);
+CREATE INDEX IF NOT EXISTS idx_posts_group_id ON posts(group_id);
+CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at);
+CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id);
+CREATE INDEX IF NOT EXISTS idx_comments_created_at ON comments(created_at);
+CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
+CREATE INDEX IF NOT EXISTS idx_group_invites_to ON group_invites(to_user_id);
+CREATE INDEX IF NOT EXISTS idx_group_join_requests_group ON group_join_requests(group_id);
+CREATE INDEX IF NOT EXISTS idx_events_group_id ON events(group_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_dm_messages_to ON dm_messages(to_user_id);
+CREATE INDEX IF NOT EXISTS idx_group_messages_group ON group_messages(group_id);

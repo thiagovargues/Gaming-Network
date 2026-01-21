@@ -1,39 +1,83 @@
-package httpapi
+package http
 
 import (
 	"database/sql"
 	"net/http"
+	"time"
 
+	"backend/internal/config"
 	"backend/internal/http/handlers"
-	"backend/internal/http/middleware"
+	appmw "backend/internal/http/middleware"
+	"backend/internal/ws"
+
+	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
 )
 
-type healthResponse struct {
-	OK bool `json:"ok"`
-}
+func NewRouter(cfg config.Config, db *sql.DB) http.Handler {
+	r := chi.NewRouter()
+	r.Use(chimw.RequestID)
+	r.Use(chimw.RealIP)
+	r.Use(chimw.Recoverer)
+	r.Use(chimw.Timeout(30 * time.Second))
+	r.Use(chimw.NoCache)
+	r.Use(chimw.CleanPath)
 
-func NewRouter(db *sql.DB) http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, healthResponse{OK: true})
+	r.Use(appmw.CORS(cfg.CORSOrigin))
+
+	r.Get("/health", handlers.Health())
+
+	r.Route("/api", func(api chi.Router) {
+		api.Post("/auth/register", handlers.Register(cfg, db))
+		api.Post("/auth/login", handlers.Login(cfg, db))
+		api.Post("/auth/logout", handlers.Logout(cfg, db))
+		api.With(appmw.RequireAuth(cfg, db)).Get("/me", handlers.Me())
+
+		api.With(appmw.RequireAuth(cfg, db)).Get("/users/{id}", handlers.GetUser(db))
+		api.With(appmw.RequireAuth(cfg, db)).Patch("/users/me", handlers.UpdateMe(db))
+		api.With(appmw.RequireAuth(cfg, db)).Get("/users/{id}/followers", handlers.ListFollowers(db))
+		api.With(appmw.RequireAuth(cfg, db)).Get("/users/{id}/following", handlers.ListFollowing(db))
+
+		api.With(appmw.RequireAuth(cfg, db)).Post("/follows/request", handlers.FollowRequest(db))
+		api.With(appmw.RequireAuth(cfg, db)).Post("/follows/request/{id}/accept", handlers.AcceptFollow(db))
+		api.With(appmw.RequireAuth(cfg, db)).Post("/follows/request/{id}/refuse", handlers.RefuseFollow(db))
+		api.With(appmw.RequireAuth(cfg, db)).Delete("/follows/{id}", handlers.Unfollow(db))
+		api.With(appmw.RequireAuth(cfg, db)).Get("/follows/requests/incoming", handlers.ListIncomingFollowRequests(db))
+		api.With(appmw.RequireAuth(cfg, db)).Get("/follows/requests/outgoing", handlers.ListOutgoingFollowRequests(db))
+
+		api.With(appmw.RequireAuth(cfg, db)).Post("/posts", handlers.CreatePost(db))
+		api.With(appmw.RequireAuth(cfg, db)).Get("/feed", handlers.Feed(db))
+		api.With(appmw.RequireAuth(cfg, db)).Get("/users/{id}/posts", handlers.UserPosts(db))
+		api.With(appmw.RequireAuth(cfg, db)).Post("/posts/{id}/comments", handlers.CreateComment(db))
+		api.With(appmw.RequireAuth(cfg, db)).Get("/posts/{id}/comments", handlers.ListComments(db))
+
+		api.With(appmw.RequireAuth(cfg, db)).Post("/media/upload", handlers.UploadMedia(cfg, db))
+
+		api.With(appmw.RequireAuth(cfg, db)).Post("/groups", handlers.CreateGroup(db))
+		api.With(appmw.RequireAuth(cfg, db)).Get("/groups", handlers.ListGroups(db))
+		api.With(appmw.RequireAuth(cfg, db)).Get("/groups/{id}", handlers.GetGroup(db))
+		api.With(appmw.RequireAuth(cfg, db)).Post("/groups/{id}/invite", handlers.InviteToGroup(db))
+		api.With(appmw.RequireAuth(cfg, db)).Post("/groups/invites/{id}/accept", handlers.AcceptGroupInvite(db))
+		api.With(appmw.RequireAuth(cfg, db)).Post("/groups/invites/{id}/refuse", handlers.RefuseGroupInvite(db))
+		api.With(appmw.RequireAuth(cfg, db)).Post("/groups/{id}/join-request", handlers.RequestJoinGroup(db))
+		api.With(appmw.RequireAuth(cfg, db)).Post("/groups/join-requests/{id}/accept", handlers.AcceptJoinRequest(db))
+		api.With(appmw.RequireAuth(cfg, db)).Post("/groups/join-requests/{id}/refuse", handlers.RefuseJoinRequest(db))
+		api.With(appmw.RequireAuth(cfg, db)).Get("/groups/{id}/members", handlers.ListGroupMembers(db))
+		api.With(appmw.RequireAuth(cfg, db)).Post("/groups/{id}/posts", handlers.CreateGroupPost(db))
+		api.With(appmw.RequireAuth(cfg, db)).Get("/groups/{id}/posts", handlers.ListGroupPosts(db))
+
+		api.With(appmw.RequireAuth(cfg, db)).Post("/groups/{id}/events", handlers.CreateEvent(db))
+		api.With(appmw.RequireAuth(cfg, db)).Get("/groups/{id}/events", handlers.ListEvents(db))
+		api.With(appmw.RequireAuth(cfg, db)).Post("/events/{id}/respond", handlers.RespondEvent(db))
+
+		api.With(appmw.RequireAuth(cfg, db)).Get("/notifications", handlers.ListNotifications(db))
+		api.With(appmw.RequireAuth(cfg, db)).Post("/notifications/{id}/read", handlers.MarkNotificationRead(db))
+		api.With(appmw.RequireAuth(cfg, db)).Post("/notifications/read-all", handlers.MarkAllNotificationsRead(db))
+
+		api.With(appmw.RequireAuth(cfg, db)).Get("/ws", ws.NewHandler(cfg, db))
 	})
 
-	mux.Handle("/api/auth/register", handlers.Register(db))
-	mux.Handle("/api/auth/login", handlers.Login(db))
-	mux.Handle("/api/auth/logout", middleware.RequireAuth(db, handlers.Logout(db)))
-	mux.Handle("/api/me", middleware.RequireAuth(db, handlers.Me()))
+	r.Handle("/media/*", handlers.Media(cfg))
 
-	mux.Handle("/api/follow/request", middleware.RequireAuth(db, handlers.FollowRequest(db)))
-	mux.Handle("/api/follow/accept", middleware.RequireAuth(db, handlers.FollowAccept(db)))
-	mux.Handle("/api/follow/refuse", middleware.RequireAuth(db, handlers.FollowRefuse(db)))
-	mux.Handle("/api/follow/unfollow", middleware.RequireAuth(db, handlers.FollowUnfollow(db)))
-
-	mux.Handle("/api/posts", middleware.RequireAuth(db, handlers.CreatePost(db)))
-	mux.Handle("/api/posts/", middleware.RequireAuth(db, handlers.PostComments(db)))
-	mux.Handle("/api/feed", middleware.RequireAuth(db, handlers.Feed(db)))
-
-	mux.Handle("/api/profile/privacy", middleware.RequireAuth(db, handlers.ProfilePrivacy(db)))
-	mux.Handle("/api/profile/", middleware.RequireAuth(db, handlers.ProfileRoutes(db)))
-
-	return mux
+	return r
 }
