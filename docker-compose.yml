@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/backend.Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      DB_PATH: /app/storage/app.db
+      PORT: "8080"
+    volumes:
+      - sqlite_data:/app/storage
+      - uploads_data:/app/storage/media
+
+volumes:
+  sqlite_data:
+  uploads_data:
