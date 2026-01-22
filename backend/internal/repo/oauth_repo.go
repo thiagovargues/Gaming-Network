@@ -29,3 +29,24 @@ func CreateOAuthAccount(ctx context.Context, db *sql.DB, userID int64, provider,
 	)
 	return err
 }
+
+func ListOAuthProvidersByUserID(ctx context.Context, db *sql.DB, userID int64) ([]string, error) {
+	rows, err := db.QueryContext(ctx, "SELECT provider FROM oauth_accounts WHERE user_id = ? ORDER BY provider", userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var providers []string
+	for rows.Next() {
+		var provider string
+		if err := rows.Scan(&provider); err != nil {
+			return nil, err
+		}
+		providers = append(providers, provider)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return providers, nil
+}

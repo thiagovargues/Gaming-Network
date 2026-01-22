@@ -14,4 +14,5 @@ DROP TABLE IF EXISTS groups;
 DROP TABLE IF EXISTS follows;
 DROP TABLE IF EXISTS follow_requests;
 DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS oauth_accounts;
 DROP TABLE IF EXISTS users;

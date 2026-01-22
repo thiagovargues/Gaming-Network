@@ -24,6 +24,11 @@ npm install
 npm run dev
 ```
 
+## Dev (both)
+```
+./dev.sh
+```
+
 ## Docker
 ```
 docker compose up --build

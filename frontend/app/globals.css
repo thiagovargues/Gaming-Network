@@ -40,6 +40,8 @@ main {
   background: #fffefb;
   position: sticky;
   top: 0;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .card {
@@ -66,4 +68,55 @@ button {
 
 button.secondary {
   background: #2d2d2d;
+}
+
+.nav__user {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.nav__user-link {
+  font-weight: 600;
+}
+
+.nav__avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: #f0ede6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #5a564d;
+}
+
+.nav__avatar-link {
+  display: inline-flex;
+  align-items: center;
+}
+
+.nav__avatar--fallback {
+  font-size: 12px;
+}
+
+.nav__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: #f2f2f2;
+  border: 1px solid var(--border);
+}
+
+.nav__badge-icon {
+  width: 34px;
+  height: 34px;
 }

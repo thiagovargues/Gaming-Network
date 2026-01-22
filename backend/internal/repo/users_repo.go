@@ -33,10 +33,10 @@ func CreateOAuthUser(ctx context.Context, db *sql.DB, email, firstName, lastName
 		`INSERT INTO users (email, password_hash, first_name, last_name, dob, avatar_path, nickname, about, is_public)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
 		email,
-		nil,
+		"",
 		firstName,
 		lastName,
-		nil,
+		"1970-01-01",
 		nullableString(avatar),
 		sql.NullString{},
 		sql.NullString{},

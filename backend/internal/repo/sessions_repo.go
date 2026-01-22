@@ -66,6 +66,13 @@ func GetSessionUser(ctx context.Context, db *sql.DB, token string) (UserProfile,
 	profile.Nickname = nullableStringPtr(nickname)
 	profile.About = nullableStringPtr(about)
 	profile.IsPublic = isPublic == 1
+	providers, err := ListOAuthProvidersByUserID(ctx, db, profile.ID)
+	if err != nil {
+		return UserProfile{}, false, err
+	}
+	if len(providers) > 0 {
+		profile.AuthProviders = providers
+	}
 	return profile, true, nil
 }
 

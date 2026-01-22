@@ -1,26 +1,27 @@
 package repo
 
 type UserProfile struct {
-	ID        int64  `json:"id"`
-	Email     string `json:"email"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	DOB       string `json:"dob"`
-	Avatar    *string `json:"avatar_path"`
-	Nickname  *string `json:"nickname"`
-	About     *string `json:"about"`
-	IsPublic  bool   `json:"is_public"`
-	CreatedAt string `json:"created_at"`
+	ID            int64    `json:"id"`
+	Email         string   `json:"email"`
+	FirstName     string   `json:"first_name"`
+	LastName      string   `json:"last_name"`
+	DOB           string   `json:"dob"`
+	Avatar        *string  `json:"avatar_path"`
+	Nickname      *string  `json:"nickname"`
+	About         *string  `json:"about"`
+	IsPublic      bool     `json:"is_public"`
+	CreatedAt     string   `json:"created_at"`
+	AuthProviders []string `json:"auth_providers,omitempty"`
 }
 
 type Post struct {
-	ID        int64
-	UserID    int64
-	GroupID   *int64
-	Text      string
+	ID         int64
+	UserID     int64
+	GroupID    *int64
+	Text       string
 	Visibility string
-	MediaPath *string
-	CreatedAt string
+	MediaPath  *string
+	CreatedAt  string
 }
 
 type Comment struct {

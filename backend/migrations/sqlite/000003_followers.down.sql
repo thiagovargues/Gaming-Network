@@ -1,2 +1,1 @@
-DROP TABLE IF EXISTS follows;
-DROP TABLE IF EXISTS follow_requests;
+-- No-op. Followers tables are created in 000001_init.up.sql.

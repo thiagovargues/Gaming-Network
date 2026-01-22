@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -33,10 +34,16 @@ type googleUserInfo struct {
 	Picture       string `json:"picture"`
 }
 
+type oauthErrorResponse struct {
+	Error  string `json:"error"`
+	Detail string `json:"detail,omitempty"`
+}
+
 func GoogleStart(cfg config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conf, err := googleOAuthConfig(cfg)
 		if err != nil {
+			log.Printf("oauth google config error: %v", err)
 			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
 			return
 		}
@@ -66,48 +73,56 @@ func GoogleCallback(cfg config.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conf, err := googleOAuthConfig(cfg)
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
+			log.Printf("oauth google config error: %v", err)
+			writeJSON(w, http.StatusInternalServerError, oauthErrorResponse{Error: "oauth_config", Detail: err.Error()})
 			return
 		}
 
 		state := r.URL.Query().Get("state")
 		if state == "" {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "missing state"})
+			log.Printf("oauth google missing state")
+			writeJSON(w, http.StatusBadRequest, oauthErrorResponse{Error: "missing_state"})
 			return
 		}
 		cookie, err := r.Cookie(oauthStateCookie)
 		if err != nil || cookie.Value == "" || cookie.Value != state {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid state"})
+			log.Printf("oauth google invalid state")
+			writeJSON(w, http.StatusBadRequest, oauthErrorResponse{Error: "invalid_state"})
 			return
 		}
 
 		code := r.URL.Query().Get("code")
 		if code == "" {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "missing code"})
+			log.Printf("oauth google missing code")
+			writeJSON(w, http.StatusBadRequest, oauthErrorResponse{Error: "missing_code"})
 			return
 		}
 
 		token, err := conf.Exchange(r.Context(), code)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "exchange failed"})
+			log.Printf("oauth google exchange failed: %v", err)
+			writeJSON(w, http.StatusBadRequest, oauthErrorResponse{Error: "exchange_failed", Detail: err.Error()})
 			return
 		}
 
 		userInfo, err := fetchGoogleUserInfo(r, conf, token)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+			log.Printf("oauth google userinfo failed: %v", err)
+			writeJSON(w, http.StatusBadRequest, oauthErrorResponse{Error: "userinfo_failed", Detail: err.Error()})
 			return
 		}
 
 		userID, err := ensureOAuthUser(r, db, userInfo)
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "oauth failed"})
+			log.Printf("oauth google ensure user failed: %v", err)
+			writeJSON(w, http.StatusInternalServerError, oauthErrorResponse{Error: "oauth_failed"})
 			return
 		}
 
 		sessionToken, expiresAt, err := repo.CreateSession(r.Context(), db, userID, 7*24*time.Hour)
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "login failed"})
+			log.Printf("oauth google session failed: %v", err)
+			writeJSON(w, http.StatusInternalServerError, oauthErrorResponse{Error: "login_failed"})
 			return
 		}
 		middleware.SetSessionCookie(cfg, w, sessionToken, expiresAt)

@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS comments;
+-- No-op. Comments table is created in 000001_init.up.sql.

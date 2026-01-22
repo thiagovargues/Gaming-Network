@@ -1,2 +1,1 @@
-DROP TABLE IF EXISTS post_allowed_viewers;
-DROP TABLE IF EXISTS posts;
+-- No-op. Posts tables are created in 000001_init.up.sql.
