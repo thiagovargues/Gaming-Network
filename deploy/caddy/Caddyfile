@@ -1,0 +1,4 @@
+# Placeholder Caddyfile
+:80 {
+	respond "Caddy is running" 200
+}

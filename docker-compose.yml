@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/backend.Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      DB_PATH: /app/storage/app.db
+      PORT: "8080"
+      CORS_ORIGIN: "http://localhost:3000"
+      MEDIA_DIR: /app/storage/media
+    volumes:
+      - sqlite_data:/app/storage
+      - uploads_data:/app/storage/media
+
+  frontend:
+    build:
+      context: .
+      dockerfile: deploy/frontend.Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: "http://localhost:8080"
+    depends_on:
+      - backend
+
+volumes:
+  sqlite_data:
+  uploads_data:
