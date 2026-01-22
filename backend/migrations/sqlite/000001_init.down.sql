@@ -1,2 +1,17 @@
+DROP TABLE IF EXISTS media;
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS group_messages;
+DROP TABLE IF EXISTS dm_messages;
+DROP TABLE IF EXISTS event_responses;
+DROP TABLE IF EXISTS events;
+DROP TABLE IF EXISTS comments;
+DROP TABLE IF EXISTS post_allowed;
+DROP TABLE IF EXISTS posts;
+DROP TABLE IF EXISTS group_join_requests;
+DROP TABLE IF EXISTS group_invites;
+DROP TABLE IF EXISTS group_members;
+DROP TABLE IF EXISTS groups;
+DROP TABLE IF EXISTS follows;
+DROP TABLE IF EXISTS follow_requests;
 DROP TABLE IF EXISTS sessions;
 DROP TABLE IF EXISTS users;

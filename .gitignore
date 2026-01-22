@@ -6,6 +6,6 @@ backend/storage/media/*
 !backend/storage/media/.gitkeep
 
 frontend/node_modules/
-frontend/dist/
+frontend/.next/
 
 *.log

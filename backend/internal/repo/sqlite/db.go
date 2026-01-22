@@ -10,13 +10,22 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func OpenSQLite(dbPath string) (*sql.DB, error) {
-	if err := ensureDir(filepath.Dir(dbPath)); err != nil {
+func Open(path string) (*sql.DB, error) {
+	if err := ensureDir(filepath.Dir(path)); err != nil {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := sql.Open("sqlite3", path)
 	if err != nil {
+		return nil, err
+	}
+
+	if _, err := db.Exec("PRAGMA foreign_keys = ON;"); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	if _, err := db.Exec("PRAGMA journal_mode = WAL;"); err != nil {
+		_ = db.Close()
 		return nil, err
 	}
 

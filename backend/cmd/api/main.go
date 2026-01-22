@@ -1,13 +1,12 @@
 package main
 
 import (
-	"errors"
 	"log"
 	"net/http"
 	"time"
 
 	"backend/internal/config"
-	httpapi "backend/internal/http"
+	apphttp "backend/internal/http"
 	"backend/internal/repo/sqlite"
 	"backend/pkg/migrate"
 )
@@ -15,26 +14,28 @@ import (
 func main() {
 	cfg := config.Load()
 
-	database, err := sqlite.OpenSQLite(cfg.DBPath)
+	db, err := sqlite.Open(cfg.DBPath)
 	if err != nil {
 		log.Fatalf("open db: %v", err)
 	}
-	defer database.Close()
+	defer db.Close()
 
 	if err := migrate.Apply(cfg.DBPath); err != nil {
-		log.Fatalf("migrations: %v", err)
+		log.Fatalf("migrate: %v", err)
 	}
 
-	server := &http.Server{
+	handler := apphttp.NewRouter(cfg, db)
+
+	srv := &http.Server{
 		Addr:         ":" + cfg.Port,
-		Handler:      httpapi.NewRouter(database),
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		Handler:      handler,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 20 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
 	log.Printf("listening on :%s", cfg.Port)
-	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("server: %v", err)
 	}
 }

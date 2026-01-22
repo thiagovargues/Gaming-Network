@@ -5,168 +5,124 @@ import (
 	"database/sql"
 )
 
-type UserProfile struct {
-	ID         int64
-	Email      string
-	FirstName  string
-	LastName   string
-	BirthDate  string
-	Nickname   *string
-	AboutMe    *string
-	AvatarPath *string
-	IsPrivate  bool
-	CreatedAt  string
-}
-
-func GetUserPrivacy(ctx context.Context, db *sql.DB, userID int64) (bool, bool, error) {
-	var isPrivate int
-	err := db.QueryRowContext(ctx, "SELECT is_private FROM users WHERE id = ?", userID).Scan(&isPrivate)
-	if err == sql.ErrNoRows {
-		return false, false, nil
-	}
-	if err != nil {
-		return false, false, err
-	}
-	return isPrivate != 0, true, nil
-}
-
-func IsFollowing(ctx context.Context, db *sql.DB, followerID, followedID int64) (bool, error) {
-	var exists int
-	err := db.QueryRowContext(
-		ctx,
-		"SELECT 1 FROM follows WHERE follower_id = ? AND followed_id = ? LIMIT 1",
-		followerID,
-		followedID,
-	).Scan(&exists)
-	if err == sql.ErrNoRows {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func CreateFollowRequest(ctx context.Context, db *sql.DB, requesterID, targetID int64) (bool, error) {
+func CreateFollowRequest(ctx context.Context, db *sql.DB, fromID, toID int64) (int64, error) {
 	result, err := db.ExecContext(
 		ctx,
-		"INSERT OR IGNORE INTO follow_requests (requester_id, target_id) VALUES (?, ?)",
-		requesterID,
-		targetID,
+		"INSERT INTO follow_requests (from_user_id, to_user_id, status) VALUES (?, ?, 'pending')",
+		fromID,
+		toID,
 	)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
-	rows, _ := result.RowsAffected()
-	return rows > 0, nil
+	id, _ := result.LastInsertId()
+	return id, nil
 }
 
-func CreateFollow(ctx context.Context, db *sql.DB, followerID, followedID int64) (bool, error) {
-	result, err := db.ExecContext(
-		ctx,
-		"INSERT OR IGNORE INTO follows (follower_id, followed_id) VALUES (?, ?)",
-		followerID,
-		followedID,
-	)
-	if err != nil {
-		return false, err
-	}
-	rows, _ := result.RowsAffected()
-	return rows > 0, nil
-}
-
-func DeleteFollowRequest(ctx context.Context, db *sql.DB, requesterID, targetID int64) (bool, error) {
-	result, err := db.ExecContext(
-		ctx,
-		"DELETE FROM follow_requests WHERE requester_id = ? AND target_id = ?",
-		requesterID,
-		targetID,
-	)
-	if err != nil {
-		return false, err
-	}
-	rows, _ := result.RowsAffected()
-	return rows > 0, nil
-}
-
-func DeleteFollow(ctx context.Context, db *sql.DB, followerID, followedID int64) (bool, error) {
-	result, err := db.ExecContext(
-		ctx,
-		"DELETE FROM follows WHERE follower_id = ? AND followed_id = ?",
-		followerID,
-		followedID,
-	)
-	if err != nil {
-		return false, err
-	}
-	rows, _ := result.RowsAffected()
-	return rows > 0, nil
-}
-
-func AcceptFollowRequest(ctx context.Context, db *sql.DB, requesterID, targetID int64) (bool, error) {
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return false, err
-	}
-
-	committed := false
-	defer func() {
-		if !committed {
-			_ = tx.Rollback()
+func UpdateFollowRequestStatus(ctx context.Context, db *sql.DB, requestID int64, status string) (int64, int64, bool, error) {
+	var fromID int64
+	var toID int64
+	row := db.QueryRowContext(ctx, "SELECT from_user_id, to_user_id FROM follow_requests WHERE id = ? AND status = 'pending'", requestID)
+	if err := row.Scan(&fromID, &toID); err != nil {
+		if err == sql.ErrNoRows {
+			return 0, 0, false, nil
 		}
-	}()
-
-	result, err := tx.ExecContext(
-		ctx,
-		"DELETE FROM follow_requests WHERE requester_id = ? AND target_id = ?",
-		requesterID,
-		targetID,
-	)
-	if err != nil {
-		return false, err
-	}
-	rows, _ := result.RowsAffected()
-	if rows == 0 {
-		return false, nil
+		return 0, 0, false, err
 	}
 
-	if _, err := tx.ExecContext(
-		ctx,
-		"INSERT OR IGNORE INTO follows (follower_id, followed_id) VALUES (?, ?)",
-		requesterID,
-		targetID,
-	); err != nil {
-		return false, err
+	if _, err := db.ExecContext(ctx, "UPDATE follow_requests SET status = ? WHERE id = ?", status, requestID); err != nil {
+		return 0, 0, false, err
 	}
+	return fromID, toID, true, nil
+}
 
-	if err := tx.Commit(); err != nil {
+func CreateFollow(ctx context.Context, db *sql.DB, followerID, followeeID int64) error {
+	_, err := db.ExecContext(ctx, "INSERT OR IGNORE INTO follows (follower_id, followee_id) VALUES (?, ?)", followerID, followeeID)
+	return err
+}
+
+func DeleteFollow(ctx context.Context, db *sql.DB, followerID, followeeID int64) error {
+	_, err := db.ExecContext(ctx, "DELETE FROM follows WHERE follower_id = ? AND followee_id = ?", followerID, followeeID)
+	return err
+}
+
+func IsFollowing(ctx context.Context, db *sql.DB, followerID, followeeID int64) (bool, error) {
+	var exists int
+	row := db.QueryRowContext(ctx, "SELECT 1 FROM follows WHERE follower_id = ? AND followee_id = ?", followerID, followeeID)
+	if err := row.Scan(&exists); err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
 		return false, err
 	}
-	committed = true
 	return true, nil
 }
 
 func ListFollowers(ctx context.Context, db *sql.DB, userID int64) ([]UserProfile, error) {
-	query := `SELECT users.id, users.email, users.first_name, users.last_name, users.birth_date,
-		users.nickname, users.about_me, users.avatar_path, users.is_private, users.created_at
+	query := `SELECT users.id, users.email, users.first_name, users.last_name, users.dob, users.avatar_path,
+		users.nickname, users.about, users.is_public, users.created_at
 		FROM follows
 		JOIN users ON users.id = follows.follower_id
-		WHERE follows.followed_id = ?
+		WHERE follows.followee_id = ?
 		ORDER BY follows.created_at DESC`
-	return queryUserProfiles(ctx, db, query, userID)
+	return queryProfiles(ctx, db, query, userID)
 }
 
 func ListFollowing(ctx context.Context, db *sql.DB, userID int64) ([]UserProfile, error) {
-	query := `SELECT users.id, users.email, users.first_name, users.last_name, users.birth_date,
-		users.nickname, users.about_me, users.avatar_path, users.is_private, users.created_at
+	query := `SELECT users.id, users.email, users.first_name, users.last_name, users.dob, users.avatar_path,
+		users.nickname, users.about, users.is_public, users.created_at
 		FROM follows
-		JOIN users ON users.id = follows.followed_id
+		JOIN users ON users.id = follows.followee_id
 		WHERE follows.follower_id = ?
 		ORDER BY follows.created_at DESC`
-	return queryUserProfiles(ctx, db, query, userID)
+	return queryProfiles(ctx, db, query, userID)
 }
 
-func queryUserProfiles(ctx context.Context, db *sql.DB, query string, args ...any) ([]UserProfile, error) {
+func ListIncomingFollowRequests(ctx context.Context, db *sql.DB, userID int64) ([]FollowRequest, error) {
+	rows, err := db.QueryContext(ctx, `SELECT id, from_user_id, to_user_id, status, created_at
+		FROM follow_requests WHERE to_user_id = ? AND status = 'pending' ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []FollowRequest
+	for rows.Next() {
+		var fr FollowRequest
+		if err := rows.Scan(&fr.ID, &fr.FromUserID, &fr.ToUserID, &fr.Status, &fr.CreatedAt); err != nil {
+			return nil, err
+		}
+		list = append(list, fr)
+	}
+	return list, rows.Err()
+}
+
+func ListOutgoingFollowRequests(ctx context.Context, db *sql.DB, userID int64) ([]FollowRequest, error) {
+	rows, err := db.QueryContext(ctx, `SELECT id, from_user_id, to_user_id, status, created_at
+		FROM follow_requests WHERE from_user_id = ? AND status = 'pending' ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []FollowRequest
+	for rows.Next() {
+		var fr FollowRequest
+		if err := rows.Scan(&fr.ID, &fr.FromUserID, &fr.ToUserID, &fr.Status, &fr.CreatedAt); err != nil {
+			return nil, err
+		}
+		list = append(list, fr)
+	}
+	return list, rows.Err()
+}
+
+type FollowRequest struct {
+	ID        int64  `json:"id"`
+	FromUserID int64 `json:"from_user_id"`
+	ToUserID  int64  `json:"to_user_id"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"created_at"`
+}
+
+func queryProfiles(ctx context.Context, db *sql.DB, query string, args ...any) ([]UserProfile, error) {
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -176,44 +132,19 @@ func queryUserProfiles(ctx context.Context, db *sql.DB, query string, args ...an
 	var profiles []UserProfile
 	for rows.Next() {
 		var profile UserProfile
+		var avatar sql.NullString
 		var nickname sql.NullString
-		var aboutMe sql.NullString
-		var avatarPath sql.NullString
-		var isPrivate int
-
-		if err := rows.Scan(
-			&profile.ID,
-			&profile.Email,
-			&profile.FirstName,
-			&profile.LastName,
-			&profile.BirthDate,
-			&nickname,
-			&aboutMe,
-			&avatarPath,
-			&isPrivate,
-			&profile.CreatedAt,
-		); err != nil {
+		var about sql.NullString
+		var isPublic int
+		if err := rows.Scan(&profile.ID, &profile.Email, &profile.FirstName, &profile.LastName, &profile.DOB,
+			&avatar, &nickname, &about, &isPublic, &profile.CreatedAt); err != nil {
 			return nil, err
 		}
-
-		profile.IsPrivate = isPrivate != 0
+		profile.Avatar = nullableStringPtr(avatar)
 		profile.Nickname = nullableStringPtr(nickname)
-		profile.AboutMe = nullableStringPtr(aboutMe)
-		profile.AvatarPath = nullableStringPtr(avatarPath)
+		profile.About = nullableStringPtr(about)
+		profile.IsPublic = isPublic == 1
 		profiles = append(profiles, profile)
 	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return profiles, nil
-}
-
-func nullableStringPtr(value sql.NullString) *string {
-	if !value.Valid {
-		return nil
-	}
-	val := value.String
-	return &val
+	return profiles, rows.Err()
 }
