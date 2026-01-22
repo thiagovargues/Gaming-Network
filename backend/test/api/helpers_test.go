@@ -7,13 +7,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 
 	"backend/internal/config"
 	apphttp "backend/internal/http"
 	"backend/internal/repo/sqlite"
-	"backend/pkg/migrate"
 )
 
 func newTestServer(t *testing.T) (*httptest.Server, config.Config, *sql.DB) {
@@ -32,11 +32,31 @@ func newTestServer(t *testing.T) (*httptest.Server, config.Config, *sql.DB) {
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	if err := migrate.Apply(cfg.DBPath); err != nil {
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get cwd: %v", err)
+	}
+	if err := os.Chdir(filepath.Join(cwd, "..", "..")); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(cwd)
+	})
+	if err := applyBaseMigration(db); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	srv := httptest.NewServer(apphttp.NewRouter(cfg, db))
 	return srv, cfg, db
+}
+
+func applyBaseMigration(db *sql.DB) error {
+	path := filepath.Join("migrations", "sqlite", "000001_init.up.sql")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(string(data))
+	return err
 }
 
 func postJSON(t *testing.T, url string, body any, cookies []*http.Cookie) (*http.Response, []byte) {

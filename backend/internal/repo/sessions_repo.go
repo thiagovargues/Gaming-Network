@@ -13,13 +13,14 @@ func CreateSession(ctx context.Context, db *sql.DB, userID int64, ttl time.Durat
 	if err != nil {
 		return "", time.Time{}, err
 	}
-	expiresAt := time.Now().Add(ttl).UTC()
+	expiresAt := time.Now().UTC().Add(ttl)
+	expiresAtValue := expiresAt.Format("2006-01-02 15:04:05")
 	_, err = db.ExecContext(
 		ctx,
 		"INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
 		token,
 		userID,
-		expiresAt,
+		expiresAtValue,
 	)
 	if err != nil {
 		return "", time.Time{}, err
