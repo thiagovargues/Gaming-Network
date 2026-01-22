@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { apiFetch } from '../../src/lib/api'
+import { apiFetch, API_URL } from '../../src/lib/api'
 
 export default function RegisterPage() {
   const [message, setMessage] = useState('')
@@ -29,6 +29,9 @@ export default function RegisterPage() {
   return (
     <section className="card">
       <h1>Register</h1>
+      <button type="button" onClick={() => (window.location.href = `${API_URL}/api/auth/google/start`)}>
+        Continuer avec Google
+      </button>
       <form onSubmit={onSubmit}>
         <input name="email" placeholder="Email" required />
         <input name="password" type="password" placeholder="Password" required />

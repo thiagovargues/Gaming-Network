@@ -76,7 +76,7 @@ func Login(cfg config.Config, db *sql.DB) http.HandlerFunc {
 			writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "invalid credentials"})
 			return
 		}
-		if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.Password)); err != nil {
+		if hash == nil || bcrypt.CompareHashAndPassword([]byte(*hash), []byte(req.Password)) != nil {
 			writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "invalid credentials"})
 			return
 		}

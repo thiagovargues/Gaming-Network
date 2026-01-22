@@ -31,6 +31,8 @@ func NewRouter(cfg config.Config, db *sql.DB) http.Handler {
 		api.Post("/auth/register", handlers.Register(cfg, db))
 		api.Post("/auth/login", handlers.Login(cfg, db))
 		api.Post("/auth/logout", handlers.Logout(cfg, db))
+		api.Get("/auth/google/start", handlers.GoogleStart(cfg))
+		api.Get("/auth/google/callback", handlers.GoogleCallback(cfg, db))
 		api.With(appmw.RequireAuth(cfg, db)).Get("/me", handlers.Me())
 
 		api.With(appmw.RequireAuth(cfg, db)).Get("/users/{id}", handlers.GetUser(db))

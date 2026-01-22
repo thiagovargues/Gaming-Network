@@ -27,18 +27,55 @@ func CreateUser(ctx context.Context, db *sql.DB, email, passwordHash, firstName,
 	return id, nil
 }
 
-func GetUserByEmail(ctx context.Context, db *sql.DB, email string) (int64, string, error) {
+func CreateOAuthUser(ctx context.Context, db *sql.DB, email, firstName, lastName string, avatar *string) (int64, error) {
+	result, err := db.ExecContext(
+		ctx,
+		`INSERT INTO users (email, password_hash, first_name, last_name, dob, avatar_path, nickname, about, is_public)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+		email,
+		nil,
+		firstName,
+		lastName,
+		nil,
+		nullableString(avatar),
+		sql.NullString{},
+		sql.NullString{},
+	)
+	if err != nil {
+		return 0, err
+	}
+	id, _ := result.LastInsertId()
+	return id, nil
+}
+
+func GetUserByEmail(ctx context.Context, db *sql.DB, email string) (int64, *string, error) {
 	var id int64
-	var hash string
+	var hash sql.NullString
 	row := db.QueryRowContext(ctx, "SELECT id, password_hash FROM users WHERE email = ?", email)
 	if err := row.Scan(&id, &hash); err != nil {
-		return 0, "", err
+		return 0, nil, err
 	}
-	return id, hash, nil
+	if !hash.Valid {
+		return id, nil, nil
+	}
+	return id, &hash.String, nil
+}
+
+func GetUserIDByEmail(ctx context.Context, db *sql.DB, email string) (int64, bool, error) {
+	var id int64
+	row := db.QueryRowContext(ctx, "SELECT id FROM users WHERE email = ?", email)
+	if err := row.Scan(&id); err != nil {
+		if err == sql.ErrNoRows {
+			return 0, false, nil
+		}
+		return 0, false, err
+	}
+	return id, true, nil
 }
 
 func GetUserByID(ctx context.Context, db *sql.DB, id int64) (UserProfile, bool, error) {
 	var profile UserProfile
+	var dob sql.NullString
 	var avatar sql.NullString
 	var nickname sql.NullString
 	var about sql.NullString
@@ -51,7 +88,7 @@ func GetUserByID(ctx context.Context, db *sql.DB, id int64) (UserProfile, bool, 
 		&profile.Email,
 		&profile.FirstName,
 		&profile.LastName,
-		&profile.DOB,
+		&dob,
 		&avatar,
 		&nickname,
 		&about,
@@ -67,6 +104,11 @@ func GetUserByID(ctx context.Context, db *sql.DB, id int64) (UserProfile, bool, 
 	profile.Avatar = nullableStringPtr(avatar)
 	profile.Nickname = nullableStringPtr(nickname)
 	profile.About = nullableStringPtr(about)
+	if dob.Valid {
+		profile.DOB = strings.TrimSpace(dob.String)
+	} else {
+		profile.DOB = ""
+	}
 	profile.IsPublic = isPublic == 1
 	return profile, true, nil
 }

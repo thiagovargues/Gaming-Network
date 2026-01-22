@@ -48,6 +48,10 @@ go test ./test/api
 - `COOKIE_NAME` (default sid)
 - `COOKIE_SECURE` (true/false)
 - `CORS_ORIGIN` (default http://localhost:3000)
+- `FRONTEND_URL` (default empty -> fallback to CORS_ORIGIN)
+- `GOOGLE_CLIENT_ID` (OAuth)
+- `GOOGLE_CLIENT_SECRET` (OAuth)
+- `GOOGLE_REDIRECT_URL` (OAuth callback, e.g. http://localhost:8080/api/auth/google/callback)
 
 ## Endpoints principaux
 - `POST /api/auth/register`
