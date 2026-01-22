@@ -1,2 +1,3 @@
-DROP TABLE IF EXISTS post_allowed_viewers;
-DROP TABLE IF EXISTS posts;
+DROP INDEX IF EXISTS idx_post_allowed_user_id;
+DROP INDEX IF EXISTS idx_post_allowed_post_id;
+DROP INDEX IF EXISTS idx_posts_visibility;

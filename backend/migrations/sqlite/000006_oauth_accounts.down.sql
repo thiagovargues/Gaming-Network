@@ -1,6 +1,3 @@
-PRAGMA foreign_keys = OFF;
-BEGIN;
-
 DROP TABLE IF EXISTS oauth_accounts;
 
 ALTER TABLE users RENAME TO users_old;
@@ -36,6 +33,3 @@ FROM users_old;
 DROP TABLE users_old;
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-
-COMMIT;
-PRAGMA foreign_keys = ON;
