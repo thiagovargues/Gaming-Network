@@ -9,3 +9,12 @@ frontend/node_modules/
 frontend/.next/
 
 *.log
+# mac
+**/.DS_Store
+
+# local cookies
+cookies.txt
+
+# sqlite runtime + local db
+backend/storage/*.db
+backend/storage/*.db-*
