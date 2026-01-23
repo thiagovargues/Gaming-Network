@@ -37,10 +37,19 @@ func GetSessionUser(ctx context.Context, db *sql.DB, token string) (UserProfile,
 	var avatar sql.NullString
 	var nickname sql.NullString
 	var about sql.NullString
+	var sex sql.NullString
+	var age sql.NullInt64
 	var isPublic int
+	var showFirst int
+	var showLast int
+	var showAge int
+	var showSex int
+	var showNickname int
+	var showAbout int
 
 	row := db.QueryRowContext(ctx, `SELECT users.id, users.email, users.first_name, users.last_name, users.dob,
-		users.avatar_path, users.nickname, users.about, users.is_public, users.created_at
+		users.avatar_path, users.nickname, users.about, users.sex, users.age,
+		users.show_first_name, users.show_last_name, users.show_age, users.show_sex, users.show_nickname, users.show_about, users.is_public, users.created_at
 		FROM sessions
 		JOIN users ON users.id = sessions.user_id
 		WHERE sessions.token = ? AND sessions.expires_at > CURRENT_TIMESTAMP`, token)
@@ -53,6 +62,14 @@ func GetSessionUser(ctx context.Context, db *sql.DB, token string) (UserProfile,
 		&avatar,
 		&nickname,
 		&about,
+		&sex,
+		&age,
+		&showFirst,
+		&showLast,
+		&showAge,
+		&showSex,
+		&showNickname,
+		&showAbout,
 		&isPublic,
 		&profile.CreatedAt,
 	); err != nil {
@@ -65,6 +82,17 @@ func GetSessionUser(ctx context.Context, db *sql.DB, token string) (UserProfile,
 	profile.Avatar = nullableStringPtr(avatar)
 	profile.Nickname = nullableStringPtr(nickname)
 	profile.About = nullableStringPtr(about)
+	profile.Sex = nullableStringPtr(sex)
+	if age.Valid {
+		v := int(age.Int64)
+		profile.Age = &v
+	}
+	profile.ShowFirstName = showFirst == 1
+	profile.ShowLastName = showLast == 1
+	profile.ShowAge = showAge == 1
+	profile.ShowSex = showSex == 1
+	profile.ShowNickname = showNickname == 1
+	profile.ShowAbout = showAbout == 1
 	profile.IsPublic = isPublic == 1
 	providers, err := ListOAuthProvidersByUserID(ctx, db, profile.ID)
 	if err != nil {

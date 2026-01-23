@@ -9,6 +9,14 @@ type UserProfile struct {
 	Avatar        *string  `json:"avatar_path"`
 	Nickname      *string  `json:"nickname"`
 	About         *string  `json:"about"`
+	Sex           *string  `json:"sex,omitempty"`
+	Age           *int     `json:"age,omitempty"`
+	ShowFirstName bool     `json:"show_first_name"`
+	ShowLastName  bool     `json:"show_last_name"`
+	ShowAge       bool     `json:"show_age"`
+	ShowSex       bool     `json:"show_sex"`
+	ShowNickname  bool     `json:"show_nickname"`
+	ShowAbout     bool     `json:"show_about"`
 	IsPublic      bool     `json:"is_public"`
 	CreatedAt     string   `json:"created_at"`
 	AuthProviders []string `json:"auth_providers,omitempty"`

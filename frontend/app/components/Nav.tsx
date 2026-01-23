@@ -34,6 +34,7 @@ function GoogleBadge() {
 export default function Nav() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [notifCount, setNotifCount] = useState(0)
   const router = useRouter()
 
   useEffect(() => {
@@ -57,6 +58,27 @@ export default function Nav() {
     }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    async function loadNotifications() {
+      if (!user) {
+        setNotifCount(0)
+        return
+      }
+      try {
+        const res = await apiFetch('/api/notifications?limit=50')
+        const unread = (res.notifications || []).filter((n: any) => !n.is_read).length
+        if (!cancelled) setNotifCount(unread)
+      } catch {
+        if (!cancelled) setNotifCount(0)
+      }
+    }
+    loadNotifications()
+    return () => {
+      cancelled = true
+    }
+  }, [user])
+
   async function onLogout() {
     try {
       await apiFetch('/api/auth/logout', { method: 'POST' })
@@ -67,30 +89,40 @@ export default function Nav() {
     }
   }
 
-  const displayName = user?.nickname || [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.email
+  const displayName = user?.auth_providers?.includes('google')
+    ? (user?.nickname || user?.email || '')
+    : (user?.nickname ||
+      [user?.first_name, user?.last_name].filter(Boolean).join(' ') ||
+      user?.email)
   const isGoogle = user?.auth_providers?.includes('google')
 
   return (
     <nav className="nav">
-      <Link href="/">Home</Link>
-      <Link href="/feed">Feed</Link>
-      <Link href="/groups">Groups</Link>
-      <Link href="/chat">Chat</Link>
-      <Link href="/notifications">Notifications</Link>
-      {!loading && user ? (
-        <div className="nav__user">
+      <div className="nav__left">
+        {!loading && user && (
           <Link href={`/profile/${user.id}`} className="nav__user-link">
-            Logged in as: {displayName}
+            MyPage
           </Link>
-          {isGoogle && <GoogleBadge />}
-          <button type="button" onClick={onLogout}>Logout</button>
-        </div>
-      ) : (
-        <>
-          <Link href="/register">Register</Link>
-          <Link href="/login">Login</Link>
-        </>
-      )}
+        )}
+        <Link href="/feed">Feed</Link>
+        <Link href="/groups">Groups</Link>
+        <Link href="/chat">Chat</Link>
+        <Link href="/notifications">Notifications {notifCount > 0 ? `(${notifCount})` : ''}</Link>
+      </div>
+      <div className="nav__right">
+        {!loading && user ? (
+          <>
+            <span className="nav__user-link">Logged in as: {displayName}</span>
+            {isGoogle && <GoogleBadge />}
+            <button type="button" onClick={onLogout}>Logout</button>
+          </>
+        ) : (
+          <>
+            <Link href="/register">Register</Link>
+            <Link href="/login">Login</Link>
+          </>
+        )}
+      </div>
     </nav>
   )
 }

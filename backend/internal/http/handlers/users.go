@@ -52,21 +52,56 @@ func UpdateMe(db *sql.DB) http.HandlerFunc {
 			writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
 			return
 		}
-		var req struct {
-			IsPublic *bool   `json:"is_public"`
-			Avatar   *string `json:"avatar"`
-			Nickname *string `json:"nickname"`
-			About    *string `json:"about"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid json"})
-			return
-		}
-		profile, err := repo.UpdateMe(r.Context(), db, current.ID, req.IsPublic, req.Avatar, req.Nickname, req.About)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "update failed"})
-			return
-		}
+	var req struct {
+		IsPublic  *bool   `json:"is_public"`
+		Avatar    *string `json:"avatar"`
+		Nickname  *string `json:"nickname"`
+		About     *string `json:"about"`
+		FirstName *string `json:"first_name"`
+		LastName  *string `json:"last_name"`
+		DOB       *string `json:"dob"`
+		Sex       *string `json:"sex"`
+		Age       *int    `json:"age"`
+		ShowFirst *bool   `json:"show_first_name"`
+		ShowLast  *bool   `json:"show_last_name"`
+		ShowAge   *bool   `json:"show_age"`
+		ShowSex   *bool   `json:"show_sex"`
+		ShowNick  *bool   `json:"show_nickname"`
+		ShowAbout *bool   `json:"show_about"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid json"})
+		return
+	}
+	if req.Age != nil && *req.Age < 0 {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid age"})
+		return
+	}
+	if req.Age != nil && *req.Age > 130 {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid age"})
+		return
+	}
+	if req.FirstName != nil && len(*req.FirstName) > 30 {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "first_name too long"})
+		return
+	}
+	if req.LastName != nil && len(*req.LastName) > 30 {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "last_name too long"})
+		return
+	}
+	if req.Nickname != nil && len(*req.Nickname) > 30 {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "nickname too long"})
+		return
+	}
+	if req.About != nil && len(*req.About) > 300 {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "bio too long"})
+		return
+	}
+	profile, err := repo.UpdateMe(r.Context(), db, current.ID, req.IsPublic, req.Avatar, req.Nickname, req.About, req.FirstName, req.LastName, req.DOB, req.Sex, req.Age, req.ShowFirst, req.ShowLast, req.ShowAge, req.ShowSex, req.ShowNick, req.ShowAbout)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "update failed"})
+		return
+	}
 		writeJSON(w, http.StatusOK, profile)
 	}
 }

@@ -191,6 +191,31 @@ func ListComments(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+func DeletePost(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		current, ok := middleware.CurrentUser(r)
+		if !ok {
+			writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "unauthorized"})
+			return
+		}
+		postID, ok := parseIDParam(r, "id")
+		if !ok {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid id"})
+			return
+		}
+		deleted, err := repo.DeletePost(r.Context(), db, postID, current.ID)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "delete failed"})
+			return
+		}
+		if !deleted {
+			writeJSON(w, http.StatusForbidden, errorResponse{Error: "forbidden"})
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 func toPostResponse(post repo.Post) postResponse {
 	return postResponse{
 		ID: post.ID,

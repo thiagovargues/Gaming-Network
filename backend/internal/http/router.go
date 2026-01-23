@@ -48,6 +48,7 @@ func NewRouter(cfg config.Config, db *sql.DB) http.Handler {
 		api.With(appmw.RequireAuth(cfg, db)).Get("/follows/requests/outgoing", handlers.ListOutgoingFollowRequests(db))
 
 		api.With(appmw.RequireAuth(cfg, db)).Post("/posts", handlers.CreatePost(db))
+		api.With(appmw.RequireAuth(cfg, db)).Delete("/posts/{id}", handlers.DeletePost(db))
 		api.With(appmw.RequireAuth(cfg, db)).Get("/feed", handlers.Feed(db))
 		api.With(appmw.RequireAuth(cfg, db)).Get("/users/{id}/posts", handlers.UserPosts(db))
 		api.With(appmw.RequireAuth(cfg, db)).Post("/posts/{id}/comments", handlers.CreateComment(db))

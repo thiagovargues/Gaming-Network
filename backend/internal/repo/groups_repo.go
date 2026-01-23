@@ -63,7 +63,7 @@ func AddGroupMember(ctx context.Context, db *sql.DB, groupID, userID int64, role
 
 func ListGroupMembers(ctx context.Context, db *sql.DB, groupID int64) ([]UserProfile, error) {
 	query := `SELECT users.id, users.email, users.first_name, users.last_name, users.dob, users.avatar_path,
-		users.nickname, users.about, users.is_public, users.created_at
+		users.nickname, users.about, users.sex, users.age, users.show_first_name, users.show_last_name, users.show_age, users.show_sex, users.show_nickname, users.show_about, users.is_public, users.created_at
 		FROM group_members
 		JOIN users ON users.id = group_members.user_id
 		WHERE group_members.group_id = ?

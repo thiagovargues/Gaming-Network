@@ -1,20 +1,31 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { apiFetch } from '../../src/lib/api'
+import { useEffect, useMemo, useState } from 'react'
+import { apiFetch, uploadMedia } from '../../src/lib/api'
+import PostCard from '../components/PostCard'
 
 interface Post {
   id: number
   user_id: number
   text: string
   visibility: string
-  media_path?: string
+  media_path?: string | null
   created_at: string
+}
+
+type User = {
+  id: number
+  email: string
+  first_name: string
+  last_name: string
 }
 
 export default function FeedPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [message, setMessage] = useState('')
+  const [me, setMe] = useState<User | null>(null)
+  const [followers, setFollowers] = useState<User[]>([])
+  const [isPublic, setIsPublic] = useState(true)
 
   async function load() {
     try {
@@ -25,18 +36,40 @@ export default function FeedPage() {
     }
   }
 
+  async function loadMe() {
+    try {
+      const user = await apiFetch('/api/me')
+      setMe(user)
+      const followersRes = await apiFetch(`/api/users/${user.id}/followers`)
+      setFollowers(followersRes.users || [])
+    } catch (err) {
+      setMe(null)
+      setFollowers([])
+    }
+  }
+
   async function onCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const form = new FormData(e.currentTarget)
+    setMessage('')
     try {
+      const file = form.get('file') as File | null
+      let mediaPath: string | undefined
+      if (file && file.size > 0) {
+        mediaPath = await uploadMedia(file)
+      }
+      const allowedFollowerIDs = form.getAll('allowed_follower_ids').map((v) => Number(v)).filter((v) => v > 0)
       await apiFetch('/api/posts', {
         method: 'POST',
         body: JSON.stringify({
           text: form.get('text'),
-          visibility: form.get('visibility')
+          visibility: isPublic ? 'public' : 'private',
+          allowed_follower_ids: allowedFollowerIDs,
+          media_path: mediaPath
         })
       })
       e.currentTarget.reset()
+      setIsPublic(true)
       load()
     } catch (err: any) {
       setMessage(err.message)
@@ -45,30 +78,54 @@ export default function FeedPage() {
 
   useEffect(() => {
     load()
+    loadMe()
   }, [])
 
+  const followersOptions = useMemo(() => followers.map((f) => (
+    <label key={f.id} style={{ display: 'block' }}>
+      <input type="checkbox" name="allowed_follower_ids" value={String(f.id)} />
+      {f.first_name} {f.last_name} ({f.email})
+    </label>
+  )), [followers])
+
   return (
-    <section>
+    <section className="feed-layout">
       <div className="card">
-        <h1>Feed</h1>
+        <div className="feed-header">
+          <h1>Feed</h1>
+          <div className="privacy-row">
+            <span>{isPublic ? 'Public' : 'Privé'}</span>
+            <button
+              type="button"
+              className={`switch ${isPublic ? 'on' : 'off'}`}
+              onClick={() => setIsPublic((v) => !v)}
+              aria-pressed={isPublic}
+            >
+              <span className="switch-thumb" />
+            </button>
+          </div>
+        </div>
         <form onSubmit={onCreate}>
-          <textarea name="text" placeholder="Votre post" required />
-          <select name="visibility" defaultValue="public">
-            <option value="public">Public</option>
-            <option value="followers">Followers</option>
-            <option value="private">Private</option>
-          </select>
-          <button type="submit">Publier</button>
+          <textarea name="text" placeholder="Votre post" required className="feed-composer" />
+          <div className="feed-actions">
+            <label className="file-trigger">
+              Ajouter une image
+              <input name="file" type="file" accept="image/png,image/jpeg,image/gif" />
+            </label>
+            <button type="submit">Publier</button>
+          </div>
+          {!isPublic && (
+            <div>
+              <p>Choisir les followers autorisés :</p>
+              {followersOptions.length > 0 ? followersOptions : <p>Aucun follower</p>}
+            </div>
+          )}
         </form>
         {message && <p>{message}</p>}
       </div>
 
       {posts.map((post) => (
-        <div key={post.id} className="card">
-          <p>#{post.id} par {post.user_id}</p>
-          <p>{post.text}</p>
-          <small>{post.visibility} - {post.created_at}</small>
-        </div>
+        <PostCard key={post.id} post={post} currentUserId={me?.id} onDeleted={load} />
       ))}
     </section>
   )

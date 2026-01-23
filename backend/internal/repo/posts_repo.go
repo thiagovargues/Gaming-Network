@@ -173,6 +173,15 @@ func EnsureAllowedFollowers(ctx context.Context, db *sql.DB, authorID int64, all
 	return count == len(allowedIDs), nil
 }
 
+func DeletePost(ctx context.Context, db *sql.DB, postID, userID int64) (bool, error) {
+	result, err := db.ExecContext(ctx, "DELETE FROM posts WHERE id = ? AND user_id = ?", postID, userID)
+	if err != nil {
+		return false, err
+	}
+	affected, _ := result.RowsAffected()
+	return affected > 0, nil
+}
+
 func scanPosts(rows *sql.Rows) ([]Post, error) {
 	var posts []Post
 	for rows.Next() {

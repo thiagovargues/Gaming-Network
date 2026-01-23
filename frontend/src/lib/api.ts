@@ -1,12 +1,14 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
+  const headers = isFormData
+    ? { ...(options.headers || {}) }
+    : { 'Content-Type': 'application/json', ...(options.headers || {}) }
+
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {})
-    },
+    headers,
     credentials: 'include'
   })
 
@@ -23,4 +25,21 @@ export function wsURL() {
   const base = process.env.NEXT_PUBLIC_WS_URL
   if (base) return base
   return API_URL.replace('http', 'ws') + '/api/ws'
+}
+
+export async function uploadMedia(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch(`${API_URL}/api/media/upload`, {
+    method: 'POST',
+    body: form,
+    credentials: 'include'
+  })
+  const contentType = res.headers.get('content-type') || ''
+  const data = contentType.includes('application/json') ? await res.json() : null
+  if (!res.ok) {
+    const message = data?.error || `HTTP ${res.status}`
+    throw new Error(message)
+  }
+  return data?.path as string
 }

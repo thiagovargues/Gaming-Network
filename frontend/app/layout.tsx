@@ -1,6 +1,7 @@
 import './globals.css'
 import type { ReactNode } from 'react'
 import Nav from './components/Nav'
+import ChatDock from './components/ChatDock'
 
 export const metadata = {
   title: 'Gaming Network',
@@ -13,6 +14,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <Nav />
         <main>{children}</main>
+        <ChatDock />
       </body>
     </html>
   )
